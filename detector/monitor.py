@@ -1,8 +1,11 @@
 from config import Config
 import os
 import time
+import threading
 from datetime import datetime
 import re
+from baseline import record_request, tick_second
+from detector import process_log_entry
 
 LOG_PATH = Config["log"]["path"]
 
@@ -13,6 +16,8 @@ LOG_PATTERN = re.compile(
     r"(?P<status>\d{3})\s+"
     r"(?P<size>\d+)"
 )
+
+_ticker_started = False
 
 
 def parse_line(line: str) -> dict:
@@ -60,13 +65,25 @@ def process_logs():
         data = parse_line(line)
         if not data:
             continue
+        record_request(data["status"])
+        process_log_entry(data)
 
-        # call the processor of the logs here
+
+def _baseline_tick_loop():
+    """Advance baseline time series once per second."""
+    while True:
+        tick_second()
+        time.sleep(1)
 
 
 def start_monitoring(_config=None):
     """Entry point to start monitoring logs"""
+    global _ticker_started
     print("Starting log monitoring...")
+    if not _ticker_started:
+        ticker_thread = threading.Thread(target=_baseline_tick_loop, daemon=True)
+        ticker_thread.start()
+        _ticker_started = True
     try:
         process_logs()
     except KeyboardInterrupt:

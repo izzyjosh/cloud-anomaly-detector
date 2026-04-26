@@ -1,8 +1,11 @@
 import time
-from blocker import banned_ips, unban_ip
-from notifier import send_alert
+from blocker import unban_ip, get_banned_ips
+from notifier import alert_ip_unban
+from action_logger import log_action
 
 CHECK_INTERVAL = 60  # seconds
+
+banned_ips = get_banned_ips()
 
 
 def should_unban(ip, data):
@@ -45,15 +48,9 @@ def handle_unban(ip):
         return
 
     unban_ip(ip)
+    log_action("UNBAN", ip, condition="timeout", rate="-", baseline="-", duration="-")
 
-    message = (
-        f"✅ IP UNBANNED\n"
-        f"IP: {ip}\n"
-        f"Previous Duration: {data['duration']} seconds\n"
-        f"Strike Count: {data['count']}"
-    )
-
-    send_alert(message)
+    alert_ip_unban(ip, data["duration"], data["count"])
 
 
 def start_unban_scheduler():

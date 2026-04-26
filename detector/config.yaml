@@ -6,8 +6,8 @@ slack:
 
 thresholds:
   z_score: 3.0
-  spike_multiplier: 2.0
-  error_multiplier: 1.5
+  spike_multiplier: 5.0
+  error_multiplier: 3.0
   window_size: 60
 
 blocker:

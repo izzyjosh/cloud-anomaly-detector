@@ -1,8 +1,9 @@
 from config import CONFIG
-from collection import deque, defaultdict
+from collections import deque, defaultdict
 from baseline import get_baseline
 from blocker import ban_ip
-from notifier import send_alert
+from notifier import send_alert, alert_global_anomaly
+from action_logger import log_action
 
 # ---------------------
 # Config values
@@ -86,7 +87,6 @@ def process_log_entry(data):
     stddev = baseline["stddev"]
 
     z_score = (ip_rate - mean) / stddev if stddev > 0 else 0
-
     spike = ip_rate > (mean * SPIKE_MULTIPLIER)
 
     global_z = (global_rate - mean) / stddev if stddev > 0 else 0
@@ -110,7 +110,7 @@ def process_log_entry(data):
         if error_surge:
             result.append("ERROR_SURGE")
 
-        handle_ip_anomaly(data["ip"], ip_rate, mean, result)
+        handle_ip_anomaly(data["ip"], z_score, ip_rate, mean, result)
 
     if global_z > Z_SCORE_THRESHOLD or global_spike:
         handle_global_anomaly(global_rate, mean)
@@ -119,11 +119,20 @@ def process_log_entry(data):
 # =========================
 # HANDLERS
 # =========================
-def handle_ip_anomaly(ip, rate, baseline, reason):
+def handle_ip_anomaly(ip, z_score, rate, baseline, reason):
     """
     Block IP + notify
     """
-    ban_ip(ip)
+    condition = ",".join(reason)
+    if "Z_SCORE" in reason:
+        condition = f"z>{Z_SCORE_THRESHOLD}"
+
+    ban_ip(
+        ip,
+        condition=condition,
+        rate=f"{rate:.2f}",
+        baseline=f"{baseline:.2f}",
+    )
 
     message = (
         f"🚨 IP ANOMALY DETECTED\n"
@@ -141,11 +150,5 @@ def handle_global_anomaly(rate, baseline):
     """
     Only notify (no blocking)
     """
-    message = (
-        f"⚠️ GLOBAL TRAFFIC ANOMALY\n"
-        f"Rate: {rate:.2f} req/s\n"
-        f"Baseline: {baseline:.2f}\n"
-        f"Action: MONITOR ONLY"
-    )
 
-    send_alert(message)
+    alert_global_anomaly(rate, baseline)

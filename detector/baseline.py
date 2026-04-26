@@ -1,6 +1,7 @@
 import time
-from collection import deque, defaultdict
+from collections import deque, defaultdict
 import statistics
+from action_logger import log_action
 
 # request count per seconds
 request_counts = deque(maxlen=1800)
@@ -46,7 +47,7 @@ def compute_baseline():
 
     global current_baseline
 
-    if len(request_counts) < 0:
+    if len(request_counts) < 10:
         return current_baseline  # Not enough data yet
 
     counts = list(request_counts)
@@ -69,6 +70,15 @@ def compute_baseline():
         "error_rate": error_rate,
         "last_updated": time.time(),
     }
+
+    log_action(
+        "BASELINE_UPDATE",
+        "global",
+        condition="recalculated",
+        rate="-",
+        baseline=f"mean={mean:.2f},std={stddev:.2f}",
+        duration="-",
+    )
 
     return current_baseline
 
@@ -106,6 +116,15 @@ def get_hourly_baseline():
     mean = statistics.mean(counts)
     stddev = statistics.stdev(counts) if len(counts) > 1 else 1
     error_rate = sum(errors) / len(errors) if len(errors) > 0 else 0.01
+
+    log_action(
+        "BASELINE_UPDATE",
+        f"hourly:{hour:02d}",
+        condition="recalculated",
+        rate="-",
+        baseline=f"mean={mean:.2f},std={stddev:.2f},err={error_rate:.4f}",
+        duration="-",
+    )
 
     return {
         "mean": mean,

@@ -1,10 +1,13 @@
 import time
 import subprocess
-from config import Config
+from config import CONFIG
+from action_logger import log_action, format_duration
+from notifier import alert_ip_ban
 
-BAN_DURATION = Config["blocker"]["ban_duration"]
+BAN_DURATION = CONFIG["blocker"]["ban_duration"]
 
 banned_ips = {}
+strike_counts = {}
 
 
 # -----------------------
@@ -21,8 +24,10 @@ def _run_command(cmd):
     """
     try:
         subprocess.run(cmd, check=True)
+        return True
     except subprocess.CalledProcessError as e:
         print(f"[BLOCKER ERROR] {e}")
+        return False
 
 
 def _is_ip_banned(ip):
@@ -39,7 +44,20 @@ def _is_ip_banned(ip):
     return ip in result.stdout
 
 
-def ban_ip(ip):
+def _safe_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _condition_to_reason_list(condition):
+    if not condition or condition == "-":
+        return ["unknown"]
+    return [item.strip() for item in str(condition).split(",") if item.strip()]
+
+
+def ban_ip(ip, condition="-", rate="-", baseline="-"):
     """Ban IP using iptables
 
     Args:
@@ -49,9 +67,9 @@ def ban_ip(ip):
         print(f"[BLOCKER] IP {ip} is already banned")
         return
 
-    # determin strike count
-    previous = banned_ips.get(ip, {"count": 0})
-    count = previous["count"] + 1
+    # determine strike count across repeated bans
+    count = strike_counts.get(ip, 0) + 1
+    strike_counts[ip] = count
 
     # get ban duration based on strike count
     if count - 1 < len(BAN_DURATION):
@@ -59,13 +77,36 @@ def ban_ip(ip):
     else:
         duration = -1
 
-    # apply iptables rule if not present
-    if not _is_ip_banned(ip):
-        _run_command(["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"])
+    # apply iptables rule
+    if not _run_command(["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"]):
+        return
 
-    banned_ips[ip] = {"count": count, "banned_at": time.time(), "duration": duration}
+    banned_ips[ip] = {
+        "count": count,
+        "banned_at": time.time(),
+        "duration": duration,
+        "condition": condition,
+        "rate": rate,
+        "baseline": baseline,
+    }
 
-    print(f"[BLOCKER] Banned {ip} for {duration} seconds (strike {count})")
+    duration_label = format_duration(duration)
+    log_action(
+        "BAN",
+        ip,
+        condition=condition,
+        rate=rate,
+        baseline=baseline,
+        duration=duration_label,
+    )
+
+    alert_ip_ban(
+        ip,
+        _safe_float(rate),
+        _safe_float(baseline),
+        duration,
+        _condition_to_reason_list(condition),
+    )
 
 
 # ------------------------
@@ -80,9 +121,8 @@ def unban_ip(ip):
         print(f"[BLOCKER] Unbanned {ip}")
     except subprocess.CalledProcessError:
         print(f"[BLOCKER] Failed to unban {ip}")
-
-    previous = banned_ips.get(ip)
-    count = previous["count"] + 1 if previous else 1
+    finally:
+        banned_ips.pop(ip, None)
 
 
 # -----------------
