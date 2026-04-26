@@ -1,8 +1,6 @@
 import requests
 import time
-from config import CONFIG
-
-WEBHOOK_URL = CONFIG["slack"]["webhook_url"]
+from config import load_config
 
 # Retry settings
 MAX_RETRIES = 3
@@ -13,7 +11,9 @@ def send_alert(message: str):
     """
     Send alert to Slack
     """
-    if not WEBHOOK_URL:
+    webhook_url = load_config()["slack"].get("webhook_url")
+
+    if not webhook_url:
         print("[NOTIFIER] No webhook configured, skipping alert")
         return
 
@@ -21,7 +21,7 @@ def send_alert(message: str):
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            response = requests.post(WEBHOOK_URL, json=payload, timeout=5)
+            response = requests.post(webhook_url, json=payload, timeout=5)
 
             if response.status_code == 200:
                 return
