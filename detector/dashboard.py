@@ -23,7 +23,7 @@ app.add_middleware(
 
 START_TIME = time.time()
 
-HTML_PATH = Path(__file__).resolve().parent.parent / "dashboard ui" / "index.html"
+HTML_PATH = Path(__file__).resolve().parent.parent / "dashboard_ui" / "index.html"
 
 
 def _load_dashboard_html() -> str:
