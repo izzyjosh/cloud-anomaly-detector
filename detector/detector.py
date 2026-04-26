@@ -17,6 +17,13 @@ global_window = deque(maxlen=WINDOW_SIZE)
 ip_windows = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
 ip_errors_stat = defaultdict(lambda: {"total": 0, "errors": 0})
 
+# states
+state = {
+    "global_rate": 0,
+    "ip_rates": {},
+    "top_ips": [],
+}
+
 
 # ----------------------
 # Helper functions
@@ -114,6 +121,15 @@ def process_log_entry(data):
 
     if global_z > Z_SCORE_THRESHOLD or global_spike:
         handle_global_anomaly(global_rate, mean)
+
+    # Update shared state
+    state["global_rate"] = global_rate
+    state["ip_rates"][data["ip"]] = ip_rate
+
+    # Compute top 10 IPs
+    sorted_ips = sorted(state["ip_rates"].items(), key=lambda x: x[1], reverse=True)
+
+    state["top_ips"] = sorted_ips[:10]
 
 
 # =========================
