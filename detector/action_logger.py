@@ -1,4 +1,22 @@
 import time
+from pathlib import Path
+from config import CONFIG
+
+
+AUDIT_LOG_PATH = Path(
+    CONFIG.get("audit_log", {}).get(
+        "path", str(Path(__file__).resolve().parent / "audit.log")
+    )
+)
+
+
+def _write_audit_line(line: str):
+    try:
+        AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with AUDIT_LOG_PATH.open("a", encoding="utf-8") as log_file:
+            log_file.write(f"{line}\n")
+    except OSError as exc:
+        print(f"[AUDIT LOGGER ERROR] Could not write audit log: {exc}")
 
 
 def _format_ts() -> str:
@@ -29,4 +47,5 @@ def log_action(
     action: str, ip: str, condition="-", rate="-", baseline="-", duration="-"
 ):
     line = f"[{_format_ts()}] {action} {ip} | {condition} | {rate} | {baseline} | {duration}"
+    _write_audit_line(line)
     print(line)
