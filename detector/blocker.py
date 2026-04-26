@@ -39,7 +39,7 @@ def _is_ip_banned(ip):
         _type_: _description_
     """
     result = subprocess.run(
-        ["iptables", "-L", "INPUT", "-v", "-n"], capture_output=True, text=True
+        ["sudo", "iptables", "-L", "INPUT", "-v", "-n"], capture_output=True, text=True
     )
     return ip in result.stdout
 
@@ -78,7 +78,7 @@ def ban_ip(ip, condition="-", rate="-", baseline="-"):
         duration = -1
 
     # apply iptables rule
-    if not _run_command(["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"]):
+    if not _run_command(["sudo", "iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"]):
         return
 
     banned_ips[ip] = {
@@ -117,7 +117,9 @@ def unban_ip(ip):
     Remove IP from iptables
     """
     try:
-        subprocess.run(["iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"], check=True)
+        subprocess.run(
+            ["sudo", "iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"], check=True
+        )
         print(f"[BLOCKER] Unbanned {ip}")
     except subprocess.CalledProcessError:
         print(f"[BLOCKER] Failed to unban {ip}")
