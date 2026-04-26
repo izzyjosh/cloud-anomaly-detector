@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from detector import state
 from blocker import get_banned_ips
-from baseline import get_baseline
+from baseline import get_effective_baseline
 from config import CONFIG
 
 app = FastAPI()
@@ -44,7 +44,7 @@ def root():
 
 @app.get("/metrics")
 def get_metrics():
-    baseline = get_baseline()
+    baseline = get_effective_baseline()
     banned = get_banned_ips()
     system = get_system_metrics()
 

@@ -112,6 +112,14 @@ def force_recompute_baseline():
     return compute_baseline()
 
 
+def get_effective_baseline():
+    """Return the baseline the detector should prefer for current traffic."""
+    hourly_baseline = get_hourly_baseline()
+    if hourly_baseline is not None:
+        return hourly_baseline
+    return get_baseline()
+
+
 # ---------------------
 # Hourly smart baseline
 # ---------------------
