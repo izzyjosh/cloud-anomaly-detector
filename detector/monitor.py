@@ -1,4 +1,4 @@
-from config import Config
+from config import CONFIG
 import os
 import time
 import threading
