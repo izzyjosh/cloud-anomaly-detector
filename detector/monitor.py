@@ -3,25 +3,17 @@ import os
 import time
 import threading
 from datetime import datetime
-import re
+import json
 from baseline import record_request, tick_second
 from detector import process_log_entry
 
-LOG_PATH = Config["log"]["path"]
-
-LOG_PATTERN = re.compile(
-    r"(?P<ip>\d+\.\d+\.\d+\.\d+)\s+-\s+-\s+"
-    r"\[(?P<timestamp>.*?)\]\s+"
-    r'"(?P<method>\w+)\s+(?P<endpoint>.*?)\s+HTTP/[\d.]+"\s+'
-    r"(?P<status>\d{3})\s+"
-    r"(?P<size>\d+)"
-)
+LOG_PATH = CONFIG["log"]["path"]
 
 _ticker_started = False
 
 
 def parse_line(line: str) -> dict:
-    """Convert raw nginx log to structured dict
+    """Convert JSON nginx log line to detector event dict.
 
     Args:
         line (str): _description_
@@ -29,15 +21,34 @@ def parse_line(line: str) -> dict:
     Returns:
         dict: _description_
     """
-    match = LOG_PATTERN.match(line)
-    if not match:
+    try:
+        payload = json.loads(line)
+    except json.JSONDecodeError:
         return None
 
-    data = match.groupdict()
-    data["timestamp"] = datetime.strptime(data["timestamp"], "%d/%b/%Y:%H:%M:%S %z")
-    data["status"] = int(data["status"])
-    data["size"] = int(data["size"])
-    return data
+    required_fields = [
+        "source_ip",
+        "timestamp",
+        "method",
+        "path",
+        "status",
+        "response_size",
+    ]
+    if not all(field in payload for field in required_fields):
+        return None
+
+    try:
+        ts = str(payload["timestamp"]).replace("Z", "+00:00")
+        return {
+            "ip": str(payload["source_ip"]),
+            "timestamp": datetime.fromisoformat(ts),
+            "method": str(payload["method"]),
+            "endpoint": str(payload["path"]),
+            "status": int(payload["status"]),
+            "size": int(payload["response_size"]),
+        }
+    except (TypeError, ValueError):
+        return None
 
 
 def tail_log(path):

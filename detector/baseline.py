@@ -19,6 +19,9 @@ current_baseline = {
     "last_updated": time.time(),
 }
 
+BASELINE_RECALC_INTERVAL_SECONDS = 60
+_seconds_since_recalc = 0
+
 
 # -----------------------
 # Recording Function
@@ -35,8 +38,15 @@ def record_request(status_code: int):
 
 def tick_second():
     """Call this every second to update baseline if needed"""
+    global _seconds_since_recalc
+
     if len(request_counts) > 0:
         request_counts.append(0)  # Add a zero for the new second
+
+    _seconds_since_recalc += 1
+    if _seconds_since_recalc >= BASELINE_RECALC_INTERVAL_SECONDS:
+        compute_baseline()
+        _seconds_since_recalc = 0
 
 
 # -----------------------
@@ -87,9 +97,12 @@ def compute_baseline():
 # Baseline Accessor
 # ----------------------
 def get_baseline():
-    """Get current baseline, recompute if older than 5 minutes"""
+    """Get current baseline, recompute if older than 60 seconds"""
     global current_baseline
-    if time.time() - current_baseline["last_updated"] > 300:
+    if (
+        time.time() - current_baseline["last_updated"]
+        > BASELINE_RECALC_INTERVAL_SECONDS
+    ):
         return compute_baseline()
     return current_baseline
 

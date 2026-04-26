@@ -1,6 +1,6 @@
 from config import CONFIG
 from collections import deque, defaultdict
-from baseline import get_baseline
+from baseline import get_baseline, get_hourly_baseline
 from blocker import ban_ip
 from notifier import send_alert, alert_global_anomaly
 from action_logger import log_action
@@ -87,18 +87,20 @@ def process_log_entry(data):
     global_rate = get_rate(global_window)
     ip_rate = get_rate(ip_windows[data["ip"]])
 
-    # get baseline statistics
-    baseline = get_baseline()
+    # Prefer hourly baseline when enough data is available.
+    baseline = get_hourly_baseline() or get_baseline()
 
+    # baseline mean and standard deviation
     mean = baseline["mean"]
     stddev = baseline["stddev"]
 
+    # standard score for ip adress and global
     z_score = (ip_rate - mean) / stddev if stddev > 0 else 0
-    spike = ip_rate > (mean * SPIKE_MULTIPLIER)
 
     global_z = (global_rate - mean) / stddev if stddev > 0 else 0
     global_spike = global_rate > (mean * SPIKE_MULTIPLIER)
 
+    # error rate for the IP and baseline error rate
     total = ip_errors_stat[data["ip"]]["total"]
     errors = ip_errors_stat[data["ip"]]["errors"]
 
@@ -107,10 +109,21 @@ def process_log_entry(data):
 
     error_surge = error_rate > (baseline_error_rate * ERROR_MULTIPLIER)
 
-    if z_score > Z_SCORE_THRESHOLD or spike or error_surge:
+    # Adjust thresholds dynamically based on error surge
+    effective_z_threshold = Z_SCORE_THRESHOLD
+    effective_spike_multiplier = SPIKE_MULTIPLIER
+
+    # Tighten detection sensitivity for an IP while it shows an error surge.
+    if error_surge:
+        effective_z_threshold = max(1.0, Z_SCORE_THRESHOLD * 0.7)
+        effective_spike_multiplier = max(2.0, SPIKE_MULTIPLIER * 0.7)
+
+    spike = ip_rate > (mean * effective_spike_multiplier)
+
+    if z_score > effective_z_threshold or spike:
         result = []
 
-        if z_score > Z_SCORE_THRESHOLD:
+        if z_score > effective_z_threshold:
             result.append("Z_SCORE")
         if spike:
             result.append("SPIKE")

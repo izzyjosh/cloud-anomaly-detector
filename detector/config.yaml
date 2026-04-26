@@ -1,5 +1,5 @@
 log:
-  path: /var/log/hng-access.log 
+  path: /var/log/nginx/hng-access.log
 
 slack:
   webhook_url: ${WEB_HOOK_URL}
