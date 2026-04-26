@@ -1,7 +1,9 @@
 import time
+from pathlib import Path
 import psutil
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from detector import state
 from blocker import get_banned_ips
@@ -21,6 +23,17 @@ app.add_middleware(
 
 START_TIME = time.time()
 
+HTML_PATH = Path(__file__).resolve().parent.parent / "dashboard ui" / "index.html"
+
+
+def _load_dashboard_html() -> str:
+    if not HTML_PATH.exists():
+        return "<h1>Dashboard UI file not found</h1>"
+    return HTML_PATH.read_text(encoding="utf-8")
+
+
+DASHBOARD_HTML = _load_dashboard_html()
+
 
 # -------------------------
 # SYSTEM METRICS
@@ -37,8 +50,13 @@ def get_system_metrics():
 # -------------------------
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def root():
+    return DASHBOARD_HTML
+
+
+@app.get("/health")
+def health():
     return {"message": "Anomaly Detection Dashboard API running"}
 
 
