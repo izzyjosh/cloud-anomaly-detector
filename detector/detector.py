@@ -1,6 +1,8 @@
 from config import CONFIG
 from collection import deque, defaultdict
 from baseline import get_baseline
+from blocker import ban_ip
+from notifier import send_alert
 
 # ---------------------
 # Config values

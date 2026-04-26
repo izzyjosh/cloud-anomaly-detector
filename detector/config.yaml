@@ -8,4 +8,8 @@ thresholds:
   window_size: 60
 
 blocker:
-  ban_duration: 3600
+  ban_duration:
+    - 600
+    - 1800
+    - 7200
+    - -1
