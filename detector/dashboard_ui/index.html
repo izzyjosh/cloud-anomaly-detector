@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cloud Anomaly Dashboard</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #121a2b;
+            --panel-2: #0f1726;
+            --text: #e9f1ff;
+            --muted: #9bb0d1;
+            --ok: #30d158;
+            --warn: #ffd60a;
+            --danger: #ff453a;
+            --accent: #4cc9f0;
+            --border: #24324f;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 10% 10%, #1b2a47 0, transparent 35%),
+                radial-gradient(circle at 90% 0%, #1a3a40 0, transparent 25%),
+                linear-gradient(180deg, #0a1020 0%, #070b14 100%);
+            min-height: 100vh;
+            padding: 18px;
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .stamp {
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 12px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+        }
+
+        .kpi { grid-column: span 3; }
+        .wide { grid-column: span 6; }
+        .full { grid-column: span 12; }
+
+        .label {
+            color: var(--muted);
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .value {
+            margin-top: 6px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 0.92rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 8px 6px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .muted { color: var(--muted); }
+        .ok { color: var(--ok); }
+        .warn { color: var(--warn); }
+        .danger { color: var(--danger); }
+
+        @media (max-width: 900px) {
+            .kpi, .wide { grid-column: span 6; }
+        }
+
+        @media (max-width: 620px) {
+            .kpi, .wide, .full { grid-column: span 12; }
+            .value { font-size: 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="header">
+            <div class="title">Cloud Anomaly Detector Dashboard</div>
+            <div class="stamp" id="lastUpdated">Loading...</div>
+        </div>
+
+        <div class="grid">
+            <section class="card kpi">
+                <div class="label">Global Req/S</div>
+                <div class="value" id="globalRps">0</div>
+            </section>
+
+            <section class="card kpi">
+                <div class="label">CPU Usage</div>
+                <div class="value" id="cpu">0%</div>
+            </section>
+
+            <section class="card kpi">
+                <div class="label">Memory Usage</div>
+                <div class="value" id="memory">0%</div>
+            </section>
+
+            <section class="card kpi">
+                <div class="label">Uptime</div>
+                <div class="value" id="uptime">0s</div>
+            </section>
+
+            <section class="card wide">
+                <div class="label">Effective Baseline</div>
+                <table>
+                    <thead>
+                        <tr><th>Mean</th><th>StdDev</th><th>Error Rate</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="mean">0</td>
+                            <td id="stddev">0</td>
+                            <td id="errorRate">0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="card wide">
+                <div class="label">Top 10 Source IPs</div>
+                <table>
+                    <thead>
+                        <tr><th>IP</th><th>Rate (req/s)</th></tr>
+                    </thead>
+                    <tbody id="topIpsBody">
+                        <tr><td colspan="2" class="muted">No data yet</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="card full">
+                <div class="label">Banned IPs</div>
+                <table>
+                    <thead>
+                        <tr><th>IP</th><th>Strike</th><th>Ban Duration</th></tr>
+                    </thead>
+                    <tbody id="bannedBody">
+                        <tr><td colspan="3" class="ok">No banned IPs</td></tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        function formatUptime(totalSeconds) {
+            const sec = Number(totalSeconds || 0);
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            return `${h}h ${m}m ${s}s`;
+        }
+
+        function formatDuration(seconds) {
+            if (seconds === -1) return "permanent";
+            const val = Number(seconds || 0);
+            const hours = Math.floor(val / 3600);
+            const minutes = Math.floor((val % 3600) / 60);
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            return `${minutes}m`;
+        }
+
+        function setRows(bodyEl, rows, emptyCols, emptyText, emptyClass) {
+            if (!rows.length) {
+                bodyEl.innerHTML = `<tr><td colspan="${emptyCols}" class="${emptyClass}">${emptyText}</td></tr>`;
+                return;
+            }
+            bodyEl.innerHTML = rows.join("");
+        }
+
+        async function refreshMetrics() {
+            try {
+                const res = await fetch('/metrics', { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                document.getElementById('globalRps').textContent = Number(data.global_rps || 0).toFixed(2);
+                document.getElementById('cpu').textContent = `${Number(data.system?.cpu || 0).toFixed(1)}%`;
+                document.getElementById('memory').textContent = `${Number(data.system?.memory || 0).toFixed(1)}%`;
+                document.getElementById('uptime').textContent = formatUptime(data.uptime || 0);
+
+                document.getElementById('mean').textContent = Number(data.baseline?.mean || 0).toFixed(2);
+                document.getElementById('stddev').textContent = Number(data.baseline?.stddev || 0).toFixed(2);
+                document.getElementById('errorRate').textContent = Number(data.baseline?.error_rate || 0).toFixed(4);
+
+                const topRows = (data.top_ips || []).map(item => (
+                    `<tr><td>${item.ip}</td><td>${Number(item.rate || 0).toFixed(2)}</td></tr>`
+                ));
+                setRows(document.getElementById('topIpsBody'), topRows, 2, 'No data yet', 'muted');
+
+                const bannedRows = (data.banned_ips || []).map(item => (
+                    `<tr><td>${item.ip}</td><td>${item.strike}</td><td>${formatDuration(item.duration)}</td></tr>`
+                ));
+                setRows(document.getElementById('bannedBody'), bannedRows, 3, 'No banned IPs', 'ok');
+
+                document.getElementById('lastUpdated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+            } catch (err) {
+                document.getElementById('lastUpdated').textContent = `Update failed: ${err.message}`;
+            }
+        }
+
+        refreshMetrics();
+        setInterval(refreshMetrics, 3000);
+    </script>
+</body>
+</html>

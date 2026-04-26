@@ -23,13 +23,24 @@ app.add_middleware(
 
 START_TIME = time.time()
 
-HTML_PATH = Path(__file__).resolve().parent.parent / "dashboard_ui" / "index.html"
+HTML_CANDIDATES = [
+    Path(__file__).resolve().parent / "dashboard_ui" / "index.html",
+    Path(__file__).resolve().parent.parent / "dashboard_ui" / "index.html",
+]
+
+
+def _resolve_html_path() -> Path | None:
+    for path in HTML_CANDIDATES:
+        if path.exists():
+            return path
+    return None
 
 
 def _load_dashboard_html() -> str:
-    if not HTML_PATH.exists():
-        return "<h1>Dashboard UI file not found</h1>"
-    return HTML_PATH.read_text(encoding="utf-8")
+    html_path = _resolve_html_path()
+    if html_path is None:
+        return "<h1>Dashboard UI file not found (expected dashboard_ui/index.html)</h1>"
+    return html_path.read_text(encoding="utf-8")
 
 
 DASHBOARD_HTML = _load_dashboard_html()
