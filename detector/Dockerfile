@@ -25,6 +25,10 @@ COPY . .
 # change ownership of the application files to the non-root user
 RUN chown -R appuser:appuser /app
 
+# create directory for audit logs and set ownership
+RUN mkdir -p /var/log/detector && \
+    chown -R appuser:appuser /var/log/detector
+
 # switch to non-root user
 USER appuser
 
