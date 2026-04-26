@@ -8,8 +8,6 @@ services:
     restart: always
     networks:
       - detector-net
-    expose:
-      - "80"
     volumes:
       - HNG-nginx-logs:/var/log/nginx:ro
 
@@ -34,8 +32,6 @@ services:
     restart: always
     networks:
       - detector-net
-    ports:
-      - "5000:5000"
     volumes:
       - HNG-nginx-logs:/var/log/nginx:ro
     environment:
