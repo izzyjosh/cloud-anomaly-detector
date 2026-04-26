@@ -1,0 +1,43 @@
+services:
+  #-----------------
+  # NextCloud image
+  #-----------------
+  nextcloud:
+    image: kefaslungu/hng-nextcloud
+    container_name: nextcloud
+    restart: always
+    networks:
+      - detector-net
+    expose:
+      - "80"
+    volumes:
+      - HNG-nginx-logs:/logs:ro
+
+  #----------------
+  # Nginx image
+  #-----------------
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: always
+    networks:
+      - detector-net
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - HNG-nginx-logs:/var/log/nginx
+
+
+#----------------
+# Volumes
+#----------------
+volumes:
+  HNG-nginx-logs:
+
+#--------------------
+# Internal Network
+#--------------------
+networks:
+  detector-net:
+  driver: bridge

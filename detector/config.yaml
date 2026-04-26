@@ -1,1 +1,12 @@
-# starter
+log:
+  path: /logs/hng-access.log 
+
+
+thresholds:
+  z_score: 3.0
+  spike_multiplier: 2.0
+  error_multiplier: 1.5
+  window_size: 60
+
+blocker:
+  ban_duration: 3600
