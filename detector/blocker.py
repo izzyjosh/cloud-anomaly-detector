@@ -81,8 +81,8 @@ def unban_ip(ip):
     except subprocess.CalledProcessError:
         print(f"[BLOCKER] Failed to unban {ip}")
 
-    if ip in banned_ips:
-        del banned_ips[ip]
+    previous = banned_ips.get(ip)
+    count = previous["count"] + 1 if previous else 1
 
 
 # -----------------

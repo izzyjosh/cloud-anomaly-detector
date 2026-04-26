@@ -54,3 +54,19 @@ def handle_unban(ip):
     )
 
     send_alert(message)
+
+
+def start_unban_scheduler():
+    """
+    Background loop
+    """
+    print("[UNBANNER] Started unban scheduler")
+
+    while True:
+        try:
+            process_unbans()
+            time.sleep(CHECK_INTERVAL)
+
+        except Exception as e:
+            print(f"[UNBANNER ERROR] {e}")
+            time.sleep(5)
