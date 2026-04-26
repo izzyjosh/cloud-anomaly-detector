@@ -1,6 +1,9 @@
 log:
   path: /var/log/hng-access.log 
 
+slack:
+  webhook_url: ${WEB_HOOK_URL}
+
 thresholds:
   z_score: 3.0
   spike_multiplier: 2.0
