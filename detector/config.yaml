@@ -16,3 +16,7 @@ blocker:
     - 1800
     - 7200
     - -1
+
+dashboard:
+  host: 127.0.0.1
+  port: 5000
