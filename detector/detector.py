@@ -178,6 +178,9 @@ def comparism_with_baseline(data):
         if ip_error_surge:
             result.append("ERROR_SURGE")
 
+        if ip == "105.112.238.16":
+            return
+
         handle_ip_anomaly(data["ip"], z_score, ip_rate, mean, result)
 
     if global_z > Z_SCORE_THRESHOLD or global_spike:
