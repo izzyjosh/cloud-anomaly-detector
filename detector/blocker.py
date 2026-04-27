@@ -15,6 +15,8 @@ strike_counts = {}
 IPTABLES_BIN = shutil.which("iptables")
 SUDO_BIN = shutil.which("sudo")
 
+WHITELIST = ["127.0.0.1", "105.117.5.163"]
+
 
 def _needs_sudo() -> bool:
     geteuid = getattr(os, "geteuid", None)
@@ -98,6 +100,10 @@ def ban_ip(ip, condition="-", rate="-", baseline="-"):
     Args:
         ip (_type_): _description_
     """
+    if ip in WHITELIST:
+        print(f"[BLOCKER] Skipping whitelist IP {ip}")
+        return
+
     if _is_ip_banned(ip):
         print(f"[BLOCKER] IP {ip} is already banned")
         return
