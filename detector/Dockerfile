@@ -9,10 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     iptables \
     iproute2 \
-    && rm -rf /var/lib/apt/lists/*
-
-# create non-root user
-RUN useradd -m appuser
+    && rm -rf /var/lib/apt/lists/*r
 
 # set working directory
 WORKDIR /app
@@ -24,15 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # copy application code
 COPY . .
 
-# change ownership of the application files to the non-root user
-RUN chown -R appuser:appuser /app
-
 # create directory for audit logs and set ownership
-RUN mkdir -p /var/log/detector && \
-    chown -R appuser:appuser /var/log/detector
-
-# switch to non-root user
-USER appuser
+RUN mkdir -p /var/log/detector
 
 # health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
