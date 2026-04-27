@@ -30,6 +30,7 @@ services:
 
   detector:
     build: ./detector
+    privileged: true
     container_name: detector
     restart: always
     networks:

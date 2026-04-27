@@ -1,5 +1,7 @@
 import time
 import subprocess
+import os
+import shutil
 from config import CONFIG
 from action_logger import log_action, format_duration
 from notifier import alert_ip_ban
@@ -8,6 +10,26 @@ BAN_DURATION = CONFIG["blocker"]["ban_duration"]
 
 banned_ips = {}
 strike_counts = {}
+
+IPTABLES_BIN = shutil.which("iptables")
+SUDO_BIN = shutil.which("sudo")
+
+
+def _needs_sudo() -> bool:
+    geteuid = getattr(os, "geteuid", None)
+    if geteuid is None:
+        return False
+    return geteuid() != 0
+
+
+def _iptables_cmd(args):
+    if not IPTABLES_BIN:
+        return None
+
+    cmd = [IPTABLES_BIN, *args]
+    if SUDO_BIN and _needs_sudo():
+        cmd = [SUDO_BIN, *cmd]
+    return cmd
 
 
 # -----------------------
@@ -28,6 +50,9 @@ def _run_command(cmd):
     except subprocess.CalledProcessError as e:
         print(f"[BLOCKER ERROR] {e}")
         return False
+    except FileNotFoundError as e:
+        print(f"[BLOCKER ERROR] Command not found: {e}")
+        return False
 
 
 def _is_ip_banned(ip):
@@ -38,9 +63,17 @@ def _is_ip_banned(ip):
     Returns:
         _type_: _description_
     """
-    result = subprocess.run(
-        ["sudo", "iptables", "-L", "INPUT", "-v", "-n"], capture_output=True, text=True
-    )
+    cmd = _iptables_cmd(["-L", "INPUT", "-v", "-n"])
+    if not cmd:
+        print("[BLOCKER ERROR] iptables is not available on this host")
+        return False
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[BLOCKER ERROR] Could not inspect iptables rules: {e}")
+        return False
+
     return ip in result.stdout
 
 
@@ -78,7 +111,12 @@ def ban_ip(ip, condition="-", rate="-", baseline="-"):
         duration = -1
 
     # apply iptables rule
-    if not _run_command(["sudo", "iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"]):
+    add_cmd = _iptables_cmd(["-A", "INPUT", "-s", ip, "-j", "DROP"])
+    if not add_cmd:
+        print("[BLOCKER ERROR] iptables is not available on this host")
+        return
+
+    if not _run_command(add_cmd):
         return
 
     banned_ips[ip] = {
@@ -117,12 +155,15 @@ def unban_ip(ip):
     Remove IP from iptables
     """
     try:
-        subprocess.run(
-            ["sudo", "iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"], check=True
-        )
+        del_cmd = _iptables_cmd(["-D", "INPUT", "-s", ip, "-j", "DROP"])
+        if not del_cmd:
+            print("[BLOCKER ERROR] iptables is not available on this host")
+            return
+
+        subprocess.run(del_cmd, check=True)
         print(f"[BLOCKER] Unbanned {ip}")
-    except subprocess.CalledProcessError:
-        print(f"[BLOCKER] Failed to unban {ip}")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[BLOCKER] Failed to unban {ip}: {e}")
     finally:
         banned_ips.pop(ip, None)
 
