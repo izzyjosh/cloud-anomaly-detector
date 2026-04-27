@@ -9,7 +9,14 @@ error_counts = deque(maxlen=1800)
 
 # per hour baseline data
 hourly_data = defaultdict(
-    lambda: {"count": deque(maxlen=1800), "errors": deque(maxlen=1800), "ready": False}
+    lambda: {
+        "count": deque(maxlen=1800),
+        "errors": deque(maxlen=1800),
+        "pending_count": 0,
+        "pending_errors": 0,
+        "last_recalc": 0,
+        "cached": None,
+    }
 )
 
 current_baseline = {
@@ -30,10 +37,11 @@ def record_request(status_code: int):
     request_counts.append(1)
     error_counts.append(1 if status_code >= 400 else 0)
 
-    # update hourly data too
+    # Stage current-second hourly counters; tick_second flushes them every second.
     hour = time.gmtime().tm_hour
-    hourly_data[hour]["count"].append(1)
-    hourly_data[hour]["errors"].append(1 if status_code >= 400 else 0)
+    hourly_data[hour]["pending_count"] += 1
+    if status_code >= 400:
+        hourly_data[hour]["pending_errors"] += 1
 
 
 def tick_second():
@@ -42,6 +50,14 @@ def tick_second():
 
     if len(request_counts) > 0:
         request_counts.append(0)  # Add a zero for the new second
+
+    # Flush one per-second sample for the current hour (including zeros).
+    hour = time.gmtime().tm_hour
+    hour_bucket = hourly_data[hour]
+    hour_bucket["count"].append(hour_bucket["pending_count"])
+    hour_bucket["errors"].append(hour_bucket["pending_errors"])
+    hour_bucket["pending_count"] = 0
+    hour_bucket["pending_errors"] = 0
 
     _seconds_since_recalc += 1
     if _seconds_since_recalc >= BASELINE_RECALC_INTERVAL_SECONDS:
@@ -132,6 +148,14 @@ def get_hourly_baseline():
     hour = time.gmtime().tm_hour
     data = hourly_data[hour]
 
+    # Recompute at most once per configured interval; return cached value otherwise.
+    now = time.time()
+    if (
+        data["cached"] is not None
+        and now - data["last_recalc"] < BASELINE_RECALC_INTERVAL_SECONDS
+    ):
+        return data["cached"]
+
     counts = list(data["count"])
     errors = list(data["errors"])
 
@@ -140,7 +164,21 @@ def get_hourly_baseline():
 
     mean = statistics.mean(counts)
     stddev = statistics.stdev(counts) if len(counts) > 1 else 1
-    error_rate = sum(errors) / len(errors) if len(errors) > 0 else 0.01
+    if stddev == 0:
+        stddev = 1
+
+    total_requests = sum(counts)
+    total_errors = sum(errors)
+    error_rate = total_errors / total_requests if total_requests > 0 else 0.01
+
+    baseline = {
+        "mean": mean,
+        "stddev": stddev,
+        "error_rate": error_rate,
+    }
+
+    data["cached"] = baseline
+    data["last_recalc"] = now
 
     log_action(
         "BASELINE_UPDATE",
@@ -151,8 +189,4 @@ def get_hourly_baseline():
         duration="-",
     )
 
-    return {
-        "mean": mean,
-        "stddev": stddev,
-        "error_rate": error_rate,
-    }
+    return baseline
