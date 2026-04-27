@@ -98,7 +98,7 @@ def process_log_entry(data):
     z_score = (ip_rate - mean) / stddev if stddev > 0 else 0
 
     global_z = (global_rate - mean) / stddev if stddev > 0 else 0
-    global_spike = global_rate > (mean * SPIKE_MULTIPLIER)
+    global_spike = mean > 0 and global_rate > (mean * SPIKE_MULTIPLIER)
 
     # error rate for the IP and baseline error rate
     total = ip_errors_stat[data["ip"]]["total"]
@@ -118,7 +118,7 @@ def process_log_entry(data):
         effective_z_threshold = max(1.0, Z_SCORE_THRESHOLD * 0.7)
         effective_spike_multiplier = max(2.0, SPIKE_MULTIPLIER * 0.7)
 
-    spike = ip_rate > (mean * effective_spike_multiplier)
+    spike = mean > 0 and ip_rate > (mean * effective_spike_multiplier)
 
     if z_score > effective_z_threshold or spike:
         result = []

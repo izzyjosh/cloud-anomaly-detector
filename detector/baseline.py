@@ -16,7 +16,7 @@ current_baseline = {
     "mean": 0,
     "stddev": 1,
     "error_rate": 0.01,
-    "last_updated": time.time(),
+    "last_updated": 0,
 }
 
 BASELINE_RECALC_INTERVAL_SECONDS = 60
@@ -99,6 +99,10 @@ def compute_baseline():
 def get_baseline():
     """Get current baseline, recompute if older than 60 seconds"""
     global current_baseline
+    # Warm-up path: as soon as enough samples are collected, compute once immediately.
+    if len(request_counts) >= 10 and current_baseline["mean"] == 0:
+        return compute_baseline()
+
     if (
         time.time() - current_baseline["last_updated"]
         > BASELINE_RECALC_INTERVAL_SECONDS
