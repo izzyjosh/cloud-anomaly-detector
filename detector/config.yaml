@@ -5,7 +5,7 @@ slack:
   webhook_url: ${WEB_HOOK_URL}
 
 thresholds:
-  z_score: 3.0
+  z_score_max: 3.0
   spike_multiplier: 5.0
   error_multiplier: 3.0
   window_size: 60

@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 import json
 from baseline import record_request, tick_second
-from detector import process_log_entry
+from detector import process_log_entry, comparism_with_baseline
 
 LOG_PATH = CONFIG["log"]["path"]
 
@@ -76,8 +76,9 @@ def process_logs():
         data = parse_line(line)
         if not data:
             continue
-        record_request(data["status"])
-        process_log_entry(data)
+        record_request(data["status"])  # baseline calculation
+        process_log_entry(data["ip"], data["status"])  # pass request to detector
+        comparism_with_baseline(data)  # compare with baseline and take action if needed
 
 
 def _baseline_tick_loop():

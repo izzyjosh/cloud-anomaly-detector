@@ -3,6 +3,11 @@ from collections import deque, defaultdict
 import statistics
 from action_logger import log_action
 
+
+# counter per second
+current_second_count = 0  # 30 minutes window of request counts
+current_second_errors = 0  # 30 minutes window of error counts
+
 # request count per seconds
 request_counts = deque(maxlen=1800)
 error_counts = deque(maxlen=1800)
@@ -34,8 +39,10 @@ _seconds_since_recalc = 0
 # Recording Function
 # -----------------------
 def record_request(status_code: int):
-    request_counts.append(1)
-    error_counts.append(1 if status_code >= 400 else 0)
+    global current_second_count, current_second_errors
+    current_second_count += 1
+    if status_code >= 400:
+        current_second_errors += 1
 
     # Stage current-second hourly counters; tick_second flushes them every second.
     hour = time.gmtime().tm_hour
@@ -46,10 +53,15 @@ def record_request(status_code: int):
 
 def tick_second():
     """Call this every second to update baseline if needed"""
-    global _seconds_since_recalc
+    global _seconds_since_recalc, current_second_count, current_second_errors
 
-    if len(request_counts) > 0:
-        request_counts.append(0)  # Add a zero for the new second
+    # flush count for request and error per second
+    request_counts.append(current_second_count)
+    error_counts.append(current_second_errors)
+
+    # set counter back to zero
+    current_second_count = 0
+    current_second_errors = 0
 
     # Flush one per-second sample for the current hour (including zeros).
     hour = time.gmtime().tm_hour
@@ -159,7 +171,7 @@ def get_hourly_baseline():
     counts = list(data["count"])
     errors = list(data["errors"])
 
-    if len(counts) < 50:
+    if len(counts) < 900:  # Need at least 15 minutes of data for this hour to trust it
         return None
 
     mean = statistics.mean(counts)
