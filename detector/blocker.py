@@ -7,6 +7,7 @@ from action_logger import log_action, format_duration
 from notifier import alert_ip_ban
 
 BAN_DURATION = CONFIG["blocker"]["ban_duration"]
+IPTABLES_CHAIN = CONFIG["blocker"].get("iptables_chain", "DOCKER-USER")
 
 banned_ips = {}
 strike_counts = {}
@@ -63,18 +64,19 @@ def _is_ip_banned(ip):
     Returns:
         _type_: _description_
     """
-    cmd = _iptables_cmd(["-L", "INPUT", "-v", "-n"])
+    cmd = _iptables_cmd(["-C", IPTABLES_CHAIN, "-s", ip, "-j", "DROP"])
     if not cmd:
         print("[BLOCKER ERROR] iptables is not available on this host")
         return False
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+    except FileNotFoundError as e:
         print(f"[BLOCKER ERROR] Could not inspect iptables rules: {e}")
         return False
-
-    return ip in result.stdout
 
 
 def _safe_float(value):
@@ -111,7 +113,7 @@ def ban_ip(ip, condition="-", rate="-", baseline="-"):
         duration = -1
 
     # apply iptables rule
-    add_cmd = _iptables_cmd(["-A", "INPUT", "-s", ip, "-j", "DROP"])
+    add_cmd = _iptables_cmd(["-I", IPTABLES_CHAIN, "1", "-s", ip, "-j", "DROP"])
     if not add_cmd:
         print("[BLOCKER ERROR] iptables is not available on this host")
         return
@@ -155,7 +157,7 @@ def unban_ip(ip):
     Remove IP from iptables
     """
     try:
-        del_cmd = _iptables_cmd(["-D", "INPUT", "-s", ip, "-j", "DROP"])
+        del_cmd = _iptables_cmd(["-D", IPTABLES_CHAIN, "-s", ip, "-j", "DROP"])
         if not del_cmd:
             print("[BLOCKER ERROR] iptables is not available on this host")
             return

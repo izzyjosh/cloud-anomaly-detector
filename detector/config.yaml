@@ -16,6 +16,7 @@ blocker:
     - 1800
     - 7200
     - -1
+  iptables_chain: DOCKER-USER
 
 dashboard:
   host: 0.0.0.0

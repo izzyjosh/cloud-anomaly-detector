@@ -20,6 +20,8 @@ services:
     restart: always
     networks:
       - detector-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "80:80"
       - "443:443"
@@ -33,8 +35,7 @@ services:
     privileged: true
     container_name: detector
     restart: always
-    networks:
-      - detector-net
+    network_mode: host
     volumes:
       - HNG-nginx-logs:/var/log/nginx:ro
       - detector-audit-logs:/var/log/detector
