@@ -38,6 +38,7 @@ services:
     volumes:
       - HNG-nginx-logs:/var/log/nginx:ro
       - detector-audit-logs:/var/log/detector
+      - detector-ban-state:/var/log/detector
     environment:
       WEB_HOOK_URL: ${WEB_HOOK_URL}
 
@@ -48,6 +49,7 @@ services:
 volumes:
   HNG-nginx-logs:
   detector-audit-logs:
+  detector-ban-state:
 
 #--------------------
 # Internal Network
