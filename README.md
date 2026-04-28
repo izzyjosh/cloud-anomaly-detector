@@ -6,10 +6,10 @@ Real-time anomaly detection pipeline for web traffic with automated IP blocking,
 
 Update this section before submission so graders can test directly.
 
-- Server IP: YOUR_VPS_PUBLIC_IP
+- Server IP: 16.16.100.88
 - Dashboard URL: https://anomaly-dashboard.duckdns.org
 - Metrics API URL: https://anomaly-dashboard.duckdns.org/metrics
-- GitHub Repo (public): https://github.com/YOUR_USERNAME/cloud-anomaly-detector
+- GitHub Repo (public): https://github.com/izzyjosh/cloud-anomaly-detector
 
 ## Language Choice And Why
 
@@ -247,10 +247,3 @@ Important values:
 - Repeated alerts for the same already-banned IP are suppressed by code.
 - During warm-up, state updates continue but anomaly actions are deferred.
 - If you change domain or certificate paths, update nginx/nginx.conf accordingly.
-
-## Submission Checklist
-
-- Public GitHub repository link is set and accessible.
-- Server IP and dashboard URL are updated in Live Grading Endpoints section.
-- /metrics endpoint is reachable during grading.
-- Host ban worker service is running.
