@@ -152,6 +152,11 @@ def get_effective_baseline():
     return get_baseline()
 
 
+def is_baseline_ready(min_seconds: int = 120) -> bool:
+    """Return True when enough per-second samples exist for reliable detection."""
+    return len(request_counts) >= min_seconds
+
+
 # ---------------------
 # Hourly smart baseline
 # ---------------------

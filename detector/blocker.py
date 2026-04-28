@@ -74,11 +74,11 @@ def ban_ip(ip, condition="-", rate="-", baseline="-"):
 
     if ip in WHITELIST:
         print(f"[BLOCKER] Skipping whitelist IP {ip}")
-        return
+        return False
 
     if ip in banned_ips:
         print(f"[BLOCKER] IP {ip} already queued/banned")
-        return
+        return False
 
     # strike tracking
     count = strike_counts.get(ip, 0) + 1
@@ -120,6 +120,8 @@ def ban_ip(ip, condition="-", rate="-", baseline="-"):
         duration,
         _condition_to_reason_list(condition),
     )
+
+    return True
 
 
 # -----------------------

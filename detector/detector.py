@@ -2,10 +2,9 @@ import threading
 
 from config import CONFIG
 from collections import deque, defaultdict
-from baseline import get_baseline, get_hourly_baseline
+from baseline import get_baseline, get_hourly_baseline, is_baseline_ready
 from blocker import ban_ip
 from notifier import send_alert, alert_global_anomaly
-from action_logger import log_action
 import time
 
 # ---------------------
@@ -15,6 +14,7 @@ Z_SCORE_THRESHOLD = CONFIG["thresholds"]["z_score_max"]
 SPIKE_MULTIPLIER = CONFIG["thresholds"]["spike_multiplier"]
 ERROR_MULTIPLIER = CONFIG["thresholds"]["error_multiplier"]
 WINDOW_SIZE = CONFIG["thresholds"]["window_size"]
+DETECTION_WARMUP_SECONDS = CONFIG["thresholds"].get("warmup_seconds", 120)
 
 global_window = deque(
     maxlen=WINDOW_SIZE
@@ -131,13 +131,21 @@ def comparism_with_baseline(data):
     global global_window, ip_windows, state
 
     ip = data["ip"]
-    is_error = data["status"] >= 400
 
     # get rates and error rates
     global_rate = get_global_rps() / WINDOW_SIZE
-    global_error_rate = get_global_error_rate() / WINDOW_SIZE
-    ip_rate = get_ip_rps(ip)
+    ip_rate = get_ip_rps(ip) / WINDOW_SIZE
     ip_error_rate = get_ip_error_rate(ip)
+
+    # Update shared state even during startup warm-up.
+    state["global_rate"] = global_rate
+    state["ip_rates"][ip] = ip_rate
+    sorted_ips = sorted(state["ip_rates"].items(), key=lambda x: x[1], reverse=True)
+    state["top_ips"] = sorted_ips[:10]
+
+    # Skip anomaly actions until enough baseline data is available.
+    if not is_baseline_ready(DETECTION_WARMUP_SECONDS):
+        return
 
     # Prefer hourly baseline when enough data is available.
     baseline = get_hourly_baseline() or get_baseline()
@@ -178,23 +186,10 @@ def comparism_with_baseline(data):
         if ip_error_surge:
             result.append("ERROR_SURGE")
 
-        if ip == "105.112.238.16":
-            return
-
         handle_ip_anomaly(data["ip"], z_score, ip_rate, mean, result)
 
     if global_z > Z_SCORE_THRESHOLD or global_spike:
         handle_global_anomaly(global_rate, mean)
-
-    # Update shared state
-    state["global_rate"] = global_rate
-    state["ip_rates"][data["ip"]] = ip_rate
-
-    # Compute top 10 IPs
-    sorted_ips = sorted(state["ip_rates"].items(), key=lambda x: x[1], reverse=True)
-
-    state["top_ips"] = sorted_ips[:10]
-
 
 # =========================
 # HANDLERS
@@ -207,12 +202,16 @@ def handle_ip_anomaly(ip, z_score, rate, baseline, reason):
     if "Z_SCORE" in reason:
         condition = f"z>{Z_SCORE_THRESHOLD}"
 
-    ban_ip(
+    did_ban = ban_ip(
         ip,
         condition=condition,
         rate=f"{rate:.2f}",
         baseline=f"{baseline:.2f}",
     )
+
+    # Prevent repeated anomaly notifications for already-banned IPs.
+    if not did_ban:
+        return
 
     message = (
         f"🚨 IP ANOMALY DETECTED\n"
