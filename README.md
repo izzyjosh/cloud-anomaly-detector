@@ -9,7 +9,6 @@ Update this section before submission so graders can test directly.
 - Server IP: 16.16.100.88
 - Dashboard URL: https://anomaly-dashboard.duckdns.org
 - Metrics API URL: https://anomaly-dashboard.duckdns.org/metrics
-- GitHub Repo (public): https://github.com/izzyjosh/cloud-anomaly-detector
 
 ## Language Choice And Why
 
